@@ -2,8 +2,36 @@ from enum import Enum
 from mpmath import stirling2, memoize
 import numpy as np
 from scipy.sparse import csr_matrix
+import signal
+from math import round
 
 stirling2 = memoize(stirling2)
+
+
+class Timeout:
+    def __init__(self, seconds=10, error_message='Timeout'):
+        """Create a timeout context manager.
+
+        Args:
+            seconds: Timeout in seconds.
+            error_message: Error message to raise in case of timeout.
+
+        Raises:
+            TimeoutError: If timeout is reached.
+        """
+        self.seconds = int(round(seconds))
+        self.error_message = error_message
+
+    def handle_timeout(self, signum, frame):
+        """Handle timeout."""
+        raise TimeoutError(self.error_message)
+
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.seconds)
+
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)
 
 
 class AverageMethod(Enum):
@@ -24,6 +52,11 @@ class AdjustmentType(Enum):
     NORMALIZED = 1
     ADJUSTED = 2
     STANDARDIZED = 3
+
+
+class MethodFamily(Enum):
+    RI = 0
+    MI = 1
 
 
 def qlog(x: float, q: float = 1.0) -> float:

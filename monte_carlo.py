@@ -12,6 +12,7 @@ from sklearn.metrics.cluster import (
 )
 from utils import AverageMethod, AdjustmentType, RandomModel, stirling2, qlog, tsallis_entropy, generalized_mutual_information
 from mutual_information import get_upper_bound
+from time import perf_counter
 
 
 class WalkerRandomSampling(object):
@@ -261,12 +262,12 @@ class RandomContingencyGenerator:
 def generalized_adjusted_mutual_information_mc(
     labels_true: np.ndarray,
     labels_pred: np.ndarray,
+    adjustment: AdjustmentType,
     random_model_true: RandomModel,
     random_model_pred: RandomModel,
-    adjustment: AdjustmentType,
     q: float = 1.0,
     average_method: AverageMethod = AverageMethod.ARITHMETIC,
-    num_samples: int = 20_000,
+    time_limit: float = 10.0,
     confidence_level: float | None = None,
     seed: None | SeedSequence = None,
 ) -> float | tuple[float, ConfidenceInterval]:
@@ -275,12 +276,12 @@ def generalized_adjusted_mutual_information_mc(
     Args:
         labels_true (np.ndarray): The true labels of the data.
         labels_pred (np.ndarray): The predicted labels of the data.
+        adjustment (AdjustmentType): The type of adjustment to use (NONE, ADJUSTED, STANDARDIZED).
         random_model_true (RandomModel): The random model used for adjusting the true clustering.
         random_model_pred (RandomModel): The random model used for adjusting the predicted clustering.
-        adjustment (AdjustmentType): The type of adjustment to use (NONE, ADJUSTED, STANDARDIZED).
         q (float): The non-additivity q of the Tsallis entropy (1 for Shannon entropy, 2 for Rand Index).
         average_method (AverageMethod): The method to use for calculating the upper bound for generalized adjusted mutual information.
-        num_samples (int): The number of Monte Carlo samples to use.
+        time_limit (float): The time in seconds for how long to generate MC samples.
         confidence_level (float | None): Whether to return the confidence interval at given level.
         seed (None |SeedSequence): The seed used for generating contingency tables.
 
@@ -341,12 +342,13 @@ def generalized_adjusted_mutual_information_mc(
             0]
     )
 
-    mi_samples = np.array(
-        [
+    start_time = perf_counter()
+    mi_samples = []
+    while perf_counter() - start_time < time_limit:
+        mi_samples.append(
             generalized_mutual_information(random_contingency.random(), n, q)
-            for _ in range(num_samples)
-        ]
-    )
+        )
+    mi_samples = np.array(mi_samples)
 
     result = statistic(mi_samples)
 
