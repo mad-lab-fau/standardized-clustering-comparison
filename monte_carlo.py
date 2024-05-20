@@ -344,7 +344,7 @@ def generalized_adjusted_mutual_information_mc(
 
     start_time = perf_counter()
     mi_samples = []
-    while (perf_counter() - start_time < time_limit) or (len(mi_samples) < 2_000):
+    while (perf_counter() - start_time < time_limit) or (len(mi_samples) < 20_000):
         mi_samples.append(
             generalized_mutual_information(random_contingency.random(), n, q)
         )
