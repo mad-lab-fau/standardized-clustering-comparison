@@ -20,6 +20,8 @@ class Timeout:
         """
         self.seconds = int(np.round(seconds))
         self.error_message = error_message
+        if self.seconds <= 0:
+            raise TimeoutError("Timeout <= 0.")
 
     def handle_timeout(self, signum, frame):
         """Handle timeout."""

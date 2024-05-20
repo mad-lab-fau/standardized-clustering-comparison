@@ -13,13 +13,15 @@ from typing import Any, Iterable
 import pandas as pd
 from monte_carlo import RandomClusteringGenerator
 from pathlib import Path
+from itertools import islice, repeat
 
 ComparisonMethod = tuple[MethodFamily,
                          AdjustmentType, RandomModel, RandomModel]
 
 
-def _compare_clusterings(params: tuple[np.ndarray, np.ndarray, ComparisonMethod, float | None, SeedSequence, dict[str, Any]]) -> tuple[float, ConfidenceInterval, dict[str, Any]]:
-    labels_true, labels_pred, comparison_method, time_limit, seed, sample_params = params
+def _compare_clusterings(params: tuple[tuple[dict[str, Any], np.ndarray, np.ndarray, ComparisonMethod], SeedSequence, float | None]) -> tuple[float, ConfidenceInterval, dict[str, Any]]:
+    (sample_params, labels_true, labels_pred,
+     comparison_method), seed, time_limit = params
     sample_params["method_family"] = comparison_method[0].name
     sample_params["adjustment"] = comparison_method[1].name
     sample_params["random_model_true"] = comparison_method[2].name
@@ -53,18 +55,23 @@ class Experiment(ABC):
         raise NotImplementedError(
             "This method must be implemented in a subclass.")
 
-    def run(self, total_time_limit: float = 86400.0, n_jobs: int | None = None) -> pd.DataFrame:
+    def run(self, total_time_limit: float = 86400.0, n_jobs: int | None = None, chunk_number: int = 0, total_chunks: int = 1) -> pd.DataFrame:
         if n_jobs is None:
             n_jobs = cpu_count(logical=False)
+        chunk_size = (len(self) // total_chunks) + \
+            (1 if ((len(self) % total_chunks) != 0) else 0)
+        time_per_trial = total_time_limit / (chunk_size * n_jobs)
+        self.seed.spawn(chunk_number * chunk_size)
+        params = zip(islice(iter(self), chunk_number * chunk_size,
+                            min((chunk_number + 1) * chunk_size, len(self))), self.seed.spawn(chunk_size), repeat(time_per_trial))
+        total = min((chunk_number + 1) * chunk_size, len(self)) - \
+            chunk_number * chunk_size
 
-        time_per_trial = total_time_limit / (len(self) * n_jobs)
-        params = ((labels_true, labels_pred, comparison_method,
-                   time_per_trial, seed, sample_params) for (sample_params, labels_true, labels_pred, comparison_method), seed in zip(self, self.seed.spawn(len(self))))
         with Pool(n_jobs) as pool:
             results = list({"value": value, "confidence_low": confidence[0], "confidence_high": confidence[1], **sample_params} for value, confidence, sample_params in
                            tqdm(
                 pool.imap_unordered(_compare_clusterings, params),
-                total=len(self),
+                total=total,
             )
             )
         return pd.DataFrame(results)
@@ -154,8 +161,8 @@ class RealExperiment(Experiment):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # Required arguments
-    parser.add_argument("output_csv", type=Path,
-                        help="Path to the output CSV file", required=True)
+    parser.add_argument("--output_dir", type=Path,
+                        help="Output directory for the results", default=Path("./results"))
     parser.add_argument(
         "--experiment", nargs="+", choices=["synthetic", "real"], help="Type of experiment to run", default=["synthetic", "real"])
 
@@ -188,13 +195,30 @@ if __name__ == "__main__":
                         help="Number of parallel jobs to run", default=None)
     parser.add_argument("--seed", type=int,
                         help="Seed for random number generation", default=42)
+    parser.add_argument("--chunk_number", type=int,
+                        help="Chunk number for distributed computing", default=0)
+    parser.add_argument("--total_chunks", type=int,
+                        help="Total number of chunks for distributed computing", default=1)
     args = parser.parse_args()
 
     seed = SeedSequence(args.seed)
-    comparison_methods = [(MethodFamily[family], AdjustmentType[adjustment], RandomModel[random_model_true], RandomModel[random_model_pred])
-                          for family in args.method_families for adjustment in args.adjustments for random_model_true in {RandomModel.PERM, random_model_pred} for random_model_pred in args.random_models]
+    comparison_methods = []
+    for random_model_pred in args.random_models:
+        for random_model_true in {RandomModel.PERM, RandomModel[random_model_pred]}:
+            for family in args.method_families:
+                for adjustment in args.adjustments:
+                    comparison_methods.append(
+                        (MethodFamily[family], AdjustmentType[adjustment], random_model_true, RandomModel[random_model_pred]))
 
-    if args.experiment == "synthetic":
+    # Make sure the output directory exists
+    args.output_dir.mkdir(exist_ok=True, parents=True)
+
+    output_name_suffix = ""
+    if args.total_chunks > 1:
+        output_name_suffix = f"_chunk{args.chunk_number}_of{args.total_chunks}"
+
+    if "synthetic" in args.experiment:
+        print("Running synthetic experiment")
         experiment = SyntheticExperiment(
             comparison_methods,
             args.number_datapoints,
@@ -203,12 +227,18 @@ if __name__ == "__main__":
             args.trials,
             seed
         )
-    elif args.experiment == "real":
+        results = experiment.run(
+            args.time_per_experiment, args.n_jobs, args.chunk_number, args.total_chunks)
+        results.to_csv(args.output_dir /
+                       f"synthetic{output_name_suffix}.csv", index=False)
+    if "real" in args.experiment:
+        print("Running real experiment")
         experiment = RealExperiment(
             comparison_methods,
             args.data_dir,
             seed
         )
-
-    results = experiment.run(args.total_time_limit, args.n_jobs)
-    results.to_csv(args.output_csv, index=False)
+        results = experiment.run(
+            args.time_per_experiment, args.n_jobs, args.chunk_number, args.total_chunks)
+        results.to_csv(args.output_dir /
+                       f"real{output_name_suffix}.csv", index=False)

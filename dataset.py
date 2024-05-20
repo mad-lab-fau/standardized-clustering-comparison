@@ -176,7 +176,7 @@ class RealExperimentMCPdeSouto:
         Args:
             include_description (bool): Whether to download the description.
                 Defaults to False.
-            silent (bool): Whether to print progress. Defaults to True.
+            silent (bool): Whether to print progress. Defaults to False.
         """
         for dataset_name, dataset_type in tqdm(
             self.datasets.items(),
