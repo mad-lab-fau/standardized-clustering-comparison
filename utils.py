@@ -3,7 +3,6 @@ from mpmath import stirling2, memoize
 import numpy as np
 from scipy.sparse import csr_matrix
 import signal
-from math import round
 
 stirling2 = memoize(stirling2)
 
@@ -19,7 +18,7 @@ class Timeout:
         Raises:
             TimeoutError: If timeout is reached.
         """
-        self.seconds = int(round(seconds))
+        self.seconds = int(np.round(seconds))
         self.error_message = error_message
 
     def handle_timeout(self, signum, frame):
