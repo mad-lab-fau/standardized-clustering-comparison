@@ -157,7 +157,7 @@ if __name__ == "__main__":
     parser.add_argument("output_csv", type=Path,
                         help="Path to the output CSV file", required=True)
     parser.add_argument(
-        "--experiment", choices=["synthetic", "real"], help="Type of experiment to run", required=True)
+        "--experiment", nargs="+", choices=["synthetic", "real"], help="Type of experiment to run", default=["synthetic", "real"])
 
     # Comparison method arguments
     parser.add_argument("--method-families", nargs="+", choices=[
@@ -182,8 +182,8 @@ if __name__ == "__main__":
         "--trials", type=int, help="Number of trials for the synthetic experiment", default=1000)
 
     # Optional arguments
-    parser.add_argument("--total_time_limit", type=float,
-                        help="Total time limit for the experiment in seconds", default=86400.0)
+    parser.add_argument("--time_per_experiment", type=float,
+                        help="Total time limit for the synthetic/real experiment in seconds", default=86400.0)
     parser.add_argument("--n_jobs", type=int,
                         help="Number of parallel jobs to run", default=None)
     parser.add_argument("--seed", type=int,
