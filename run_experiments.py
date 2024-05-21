@@ -130,11 +130,11 @@ class SyntheticExperiment(Experiment):
 
     def __iter__(self) -> Iterable[tuple[dict[str, Any], np.ndarray, np.ndarray, ComparisonMethod]]:
         # Weird ordering for smoother progress bar
-        for _ in range(self.trials):
+        for trial_number in range(self.trials):
             for cluster_generator in self.cluster_generators:
                 for comparison_method in self.comparison_methods:
                     labels_pred = cluster_generator.random()
-                    yield {"n": cluster_generator._n, "k_reference": self.k_reference, "k_compare": cluster_generator._k}, self.reference_clustering, labels_pred, comparison_method
+                    yield {"n": cluster_generator._n, "k_reference": self.k_reference, "k_compare": cluster_generator._k, "trial": trial_number}, self.reference_clustering, labels_pred, comparison_method
 
 
 class RealExperiment(Experiment):
