@@ -60,7 +60,7 @@ def efficiency_experiment(
         seed = SeedSequence(0)
 
     results = []
-    with Pool(6) as pool:
+    with Pool(16) as pool:
         for n in n_values:
             if ku > n or kv > n:
                 raise ValueError(
