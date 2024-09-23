@@ -12,6 +12,9 @@ from numpy.random import SeedSequence, BitGenerator, Generator
 from tqdm import tqdm, trange
 from time import perf_counter
 from multiprocessing import Pool
+import sys
+
+sys.setrecursionlimit(10**6)
 
 
 def time_clustering_comparison_method(

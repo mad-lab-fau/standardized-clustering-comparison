@@ -13,6 +13,8 @@ from sklearn.metrics.cluster import (
 from utils import AverageMethod, AdjustmentType, RandomModel, stirling2, qlog, tsallis_entropy, generalized_mutual_information
 from mutual_information import get_upper_bound
 from time import perf_counter
+import sys
+sys.setrecursionlimit(10**6)
 
 
 class WalkerRandomSampling(object):
