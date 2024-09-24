@@ -43,10 +43,10 @@ def time_clustering_comparison_method(
         time_difference = None
         value = None
 
-    confidence_low = None
-    confidence_high = None
-    if method_name == "MI_MC":
-        value, (confidence_low, confidence_high) = value
+    # confidence_low = None
+    # confidence_high = None
+    # if method_name == "MI_MC":
+    #     value, (confidence_low, confidence_high) = value
     return {
         "n": n,
         "ku": ku,
@@ -57,8 +57,6 @@ def time_clustering_comparison_method(
         "random_model": random_model.name,
         "runtime_seconds": time_difference,
         "value": value,
-        "confidence_low": confidence_low,
-        "confidence_high": confidence_high,
     }
 
 
