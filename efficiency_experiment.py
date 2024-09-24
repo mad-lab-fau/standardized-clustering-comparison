@@ -34,19 +34,17 @@ def time_clustering_comparison_method(
             value = method(
                 u,
                 v,
-                adjustment=adjustment_type,
-                random_model_true=random_model,
-                random_model_pred=random_model,
+                **kwargs,
             )
             time_difference = perf_counter() - start_time
     except TimeoutError:
         time_difference = None
         value = None
 
-    # confidence_low = None
-    # confidence_high = None
-    # if method_name == "MI_MC":
-    #     value, (confidence_low, confidence_high) = value
+    confidence_low = None
+    confidence_high = None
+    if method_name == "MI_MC":
+        value, (confidence_low, confidence_high) = value
     return {
         "n": n,
         "ku": ku,
@@ -57,6 +55,8 @@ def time_clustering_comparison_method(
         "random_model": random_model.name,
         "runtime_seconds": time_difference,
         "value": value,
+        "confidence_low": confidence_low,
+        "confidence_high": confidence_high,
     }
 
 
