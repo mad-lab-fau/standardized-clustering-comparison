@@ -34,7 +34,7 @@ def time_clustering_comparison_method(
     }
 
     try:
-        with Timeout(seconds=20):
+        with Timeout(seconds=30):
             start_time = perf_counter()
             value = method(
                 u,
