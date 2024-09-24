@@ -1,5 +1,5 @@
 from monte_carlo import (
-    generalized_adjusted_mutual_information_mc,
+    standardized_mutual_information_mc,
     RandomClusteringGenerator,
 )
 from utils import RandomModel, AdjustmentType, Timeout
@@ -13,20 +13,25 @@ from tqdm import tqdm, trange
 from time import perf_counter
 from multiprocessing import Pool
 import sys
+from functools import partial
 
 sys.setrecursionlimit(10**6)
 
+standardized_mutual_information = partial(
+    generalized_adjusted_mutual_information, adjustment=AdjustmentType.STANDARDIZED
+)
+standardized_rand_index = partial(
+    generalized_adjusted_rand_score, adjustment=AdjustmentType.STANDARDIZED
+)
+
 
 def time_clustering_comparison_method(
-    method, method_name, u, v, adjustment_type, random_model, trial, n, ku, kv
+    method, method_name, u, v, random_model, trial, n, ku, kv
 ):
     kwargs = {
-        "adjustment": adjustment_type,
         "random_model_true": random_model,
         "random_model_pred": random_model,
     }
-    if method_name == "MI_MC":
-        kwargs["confidence_level"] = 0.95
 
     try:
         with Timeout(seconds=20):
@@ -41,22 +46,19 @@ def time_clustering_comparison_method(
         time_difference = None
         value = None
 
-    confidence_low = None
-    confidence_high = None
-    if method_name == "MI_MC":
-        value, (confidence_low, confidence_high) = value
+    std_err = 0.0
+    if (method_name == "SMI_MC") and (value is not None):
+        value, std_err = value
     return {
         "n": n,
         "ku": ku,
         "kv": kv,
         "trial": trial,
         "method": method_name,
-        "adjustment_type": adjustment_type.name,
         "random_model": random_model.name,
         "runtime_seconds": time_difference,
         "value": value,
-        "confidence_low": confidence_low,
-        "confidence_high": confidence_high,
+        "standard_error": std_err,
     }
 
 
@@ -94,32 +96,27 @@ def efficiency_experiment(
                 v = v_generator.random()
 
                 for random_model in RandomModel:
-                    for adjustment_type in [
-                        AdjustmentType.ADJUSTED,
-                        AdjustmentType.STANDARDIZED,
+                    for method_name, method in [
+                        ("SMI_MC", standardized_mutual_information_mc),
+                        ("SMI", standardized_mutual_information),
+                        ("SRI", standardized_rand_index),
                     ]:
-                        for method_name, method in [
-                            ("MI_MC", generalized_adjusted_mutual_information_mc),
-                            ("MI", generalized_adjusted_mutual_information),
-                            ("RI", generalized_adjusted_rand_score),
-                        ]:
-                            results.append(
-                                pool.apply_async(
-                                    time_clustering_comparison_method,
-                                    args=(
-                                        method,
-                                        method_name,
-                                        u,
-                                        v,
-                                        adjustment_type,
-                                        random_model,
-                                        trial,
-                                        n,
-                                        ku,
-                                        kv,
-                                    ),
-                                )
+                        results.append(
+                            pool.apply_async(
+                                time_clustering_comparison_method,
+                                args=(
+                                    method,
+                                    method_name,
+                                    u,
+                                    v,
+                                    random_model,
+                                    trial,
+                                    n,
+                                    ku,
+                                    kv,
+                                ),
                             )
+                        )
 
         results = [result.get() for result in tqdm(results)]
 
