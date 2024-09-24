@@ -10,10 +10,20 @@ from sklearn.metrics.cluster import (
     contingency_matrix,
     rand_score,
 )
-from utils import AverageMethod, AdjustmentType, RandomModel, stirling2, qlog, tsallis_entropy, generalized_mutual_information
+from utils import (
+    AverageMethod,
+    AdjustmentType,
+    RandomModel,
+    stirling2,
+    qlog,
+    tsallis_entropy,
+    generalized_mutual_information,
+)
 from mutual_information import get_upper_bound
 from time import perf_counter
+from online_bootstrap import StreamingBootstrappedStandardization
 import sys
+
 sys.setrecursionlimit(10**6)
 
 
@@ -122,8 +132,7 @@ class RandomClusteringGenerator:
             weights = np.arange(self._k_max + 1)
             weights = self._n * np.log(weights) - loggamma(weights + 1)
             weights = np.exp(weights - logbelln)
-            self._knuth_k_sampler = WalkerRandomSampling(
-                weights, seed=self._prng)
+            self._knuth_k_sampler = WalkerRandomSampling(weights, seed=self._prng)
 
     def _random_partition_all(self, size: None | int = None) -> np.ndarray:
         """Return a random set partition of a set via Dobiński's formula.
@@ -205,8 +214,7 @@ class RandomClusteringGenerator:
                     return labels
                 else:
                     labels = np.tile(self._labels, (size, 1))
-                    i, j = self._prng.choice(
-                        self._n, replace=True, size=(size, 2))
+                    i, j = self._prng.choice(self._n, replace=True, size=(size, 2))
                     labels[np.arrange(size), i], labels[np.arrange(size), j] = (
                         labels[np.arrange(size), j],
                         labels[np.arrange(size), i],
@@ -340,8 +348,7 @@ def generalized_adjusted_mutual_information_mc(
             raise ValueError(f"Unknown adjustment type: {adjustment}")
 
     random_contingency = RandomContingencyGenerator(
-        labels_true, labels_pred, random_model_true, random_model_pred, seed.spawn(1)[
-            0]
+        labels_true, labels_pred, random_model_true, random_model_pred, seed.spawn(1)[0]
     )
 
     start_time = perf_counter()
@@ -429,8 +436,7 @@ def generalized_adjusted_rand_score_mc(
 
     mi_samples = np.array(
         [
-            rand_score(random_clustering_true.random(),
-                       random_clustering_pred.random())
+            rand_score(random_clustering_true.random(), random_clustering_pred.random())
             for _ in range(num_samples)
         ]
     )
@@ -450,3 +456,45 @@ def generalized_adjusted_rand_score_mc(
         return result, confidence_interval
 
     return result
+
+
+def standardized_mutual_information_mc(
+    labels_true: np.ndarray,
+    labels_pred: np.ndarray,
+    random_model_true: RandomModel,
+    random_model_pred: RandomModel,
+    q: float = 1.0,
+    precision_goal: float = 0.1,
+    batch_size: int = 1_000,
+    bootstrap_replicates: int = 100,
+    seed: SeedSequence | None = None,
+) -> tuple[float, float]:
+    if seed == None:
+        seed = SeedSequence()
+    n = len(labels_true)
+    mi = generalized_mutual_information(
+        contingency_matrix(labels_true, labels_pred, sparse=True), n, q
+    )
+    bootstrap = StreamingBootstrappedStandardization(
+        x=mi, bootstrap_replicates=bootstrap_replicates, seed=seed.spawn(1)[0]
+    )
+    random_contingency = RandomContingencyGenerator(
+        labels_true, labels_pred, random_model_true, random_model_pred, seed.spawn(1)[0]
+    )
+
+    precision = precision_goal + 1.0
+
+    while precision > precision_goal:
+        bootstrap.update_batch(
+            np.array(
+                [
+                    generalized_mutual_information(random_contingency.random(), n, q)
+                    for _ in range(batch_size)
+                ]
+            )
+        )
+
+        smi, smi_err = bootstrap.standardized_x
+        precision = smi_err / smi
+
+    return smi, smi_err
