@@ -130,7 +130,7 @@ class RandomClusteringGenerator:
             logbelln = float(log(bell(self._n)))
             self._k_max = 2 * self._n
             weights = np.arange(1, self._k_max + 1)
-            weights = self._n * np.log(weights, where=weights) - loggamma(weights + 1)
+            weights = self._n * np.log(weights) - loggamma(weights + 1)
             weights = np.exp(weights - logbelln)
             self._knuth_k_sampler = WalkerRandomSampling(weights, seed=self._prng)
 
