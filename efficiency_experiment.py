@@ -14,6 +14,7 @@ from time import perf_counter
 from multiprocessing import Pool
 import sys
 from functools import partial
+from random import shuffle
 
 sys.setrecursionlimit(10**6)
 
@@ -34,7 +35,7 @@ def time_clustering_comparison_method(
     }
 
     try:
-        with Timeout(seconds=30):
+        with Timeout(seconds=100):
             start_time = perf_counter()
             value = method(
                 u,
@@ -118,12 +119,25 @@ def efficiency_experiment(
                             )
                         )
 
+        shuffle(results)
         results = [result.get() for result in tqdm(results)]
 
     return results
 
 
 if __name__ == "__main__":
-    results = efficiency_experiment()
+    n_values = logspace(1, 4, num=7, dtype=int, base=10).tolist() + [
+        12,
+        14,
+        16,
+        18,
+        20,
+        22,
+        24,
+        26,
+        28,
+        30,
+    ]
+    results = efficiency_experiment(n_values=n_values)
     df = pd.DataFrame(results)
     df.to_csv("./results/efficiency_experiment.csv", index=False)
