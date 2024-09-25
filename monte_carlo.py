@@ -495,6 +495,6 @@ def standardized_mutual_information_mc(
         )
 
         smi, smi_err = bootstrap.standardized_x
-        precision = smi_err / max(smi, 1)
+        precision = smi_err / max(abs(smi), 1)
 
     return smi, smi_err
