@@ -119,7 +119,6 @@ def efficiency_experiment(
                             )
                         )
 
-        shuffle(results)
         results = [result.get() for result in tqdm(results)]
 
     return results
@@ -138,6 +137,7 @@ if __name__ == "__main__":
         28,
         30,
     ]
+    shuffle(n_values)
     results = efficiency_experiment(n_values=n_values)
     df = pd.DataFrame(results)
     df.to_csv("./results/efficiency_experiment.csv", index=False)
